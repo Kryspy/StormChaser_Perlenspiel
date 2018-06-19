@@ -29,8 +29,13 @@ var gameBoard = {
 	color_Screen: 0x07638F
 };
 
-// points counter
+// points counters
 var points_Current = 0;
+
+//number of raindrops that have hit the ground and not the player
+var raindropCounter = 0;
+//number of raindrops required to hit the ground to earn one point
+var raindropsForPoint = 5;
 
 // Player Character object
 var playerCharacter = {
@@ -46,7 +51,10 @@ var playerCharacter = {
 	health : 5,
 
 	// Player color
-	beadColor : 0xDE0F00
+	beadColor : 0xDE0F00,
+
+	// Player data
+	data : "playerCharacter"
 };
 
 // Player projectile
@@ -60,10 +68,11 @@ var projectile = {
 	isActive : false,
 
 	// Color
-	beadColor : 0x00E566
-};
+	beadColor : 0x00E566,
 
-var activeProjectiles = [];
+	// Projectile data
+	data : "projectile"
+};
 
 // Raindrop object data
 var raindrop = {
@@ -72,7 +81,10 @@ var raindrop = {
 	damage : 1,
 
 	// Raindrop color
-	beadColor : 0x0086F7
+	beadColor : 0x0086F7,
+
+	// Raindrop data
+	data : "raindrop"
 };
 
 var rainSpawner = {
@@ -86,6 +98,19 @@ var rainSpawner = {
 	countDown_Max : 10
 }
 
+// Lightning object data
+var lightning = {
+
+	// Damage caused by lightning
+	damage : 2,
+
+	// Lightning color
+	beadColor : 0x0086F7,
+
+	// Lightning data
+	data : "lightning"
+};
+
 var raindropX = [];
 var raindropY = [];
 
@@ -94,24 +119,45 @@ var raindropY = [];
 //everything in this function occurs once every frame
 function update_Global(){
 
+	//first, let's handle jumps
 	update_Jump();
 
+	//then we handle projectiles (if we shot a projectile)
 	if (projectile.isActive)
 		update_Projectile();
 
+	//update the rain next
 	update_Raindropper();
 
-	if (raindropY.Length > 0){
+	if (raindropY.length > 0){
 
 		update_Raindrops();
 	}
+
+	//then update lightning
 }
 
 //jumping function for the player
 function update_Jump(){
 
+	//if isJumping is true, handle ascension
 	if (playerCharacter.isJumping) {
 
+		//check if we're about to hit lightning or a raindrop
+		var rainCheck = PS.data(playerCharacter.x, playerCharacter.y - 1) == "raindrop";
+		var lightCheck = PS.data(playerCharacter.x, playerCharacter.y - 1) == "lightning";
+
+		if (rainCheck){
+			dealDamageToPlayer (raindrop.damage); 
+			//get rid of the raindrop
+			erase_Bead (playerCharacter.x, playerCharacter.y - 1);
+		} else if (lightCheck) {
+			dealDamageToPlayer (lightning.damage);
+			//get rid of the lightning
+			erase_Bead (playerCharacter.x, playerCharacter.y - 1);
+		}
+
+		//move the player character
 		erase_Bead(playerCharacter.x, playerCharacter.y);
 		playerCharacter.y--;
 		draw_Player();
@@ -119,8 +165,25 @@ function update_Jump(){
 		if (playerCharacter.y == 9){
 			playerCharacter.isJumping = false;
 		}
-	} else if (playerCharacter.y != 12) {
+	}
+	//if we are not jumping and we are not on the ground, handle descent
+	else if (playerCharacter.y != 12) {
 
+		//check if we're about to hit lightning or a raindrop
+		var rainCheck = PS.data(playerCharacter.x, playerCharacter.y + 1) == "raindrop";
+		var lightCheck = PS.data(playerCharacter.x, playerCharacter.y + 1) == "lightning";
+
+		if (rainCheck){
+			dealDamageToPlayer (raindrop.damage); 
+			//get rid of the raindrop
+			erase_Bead (playerCharacter.x, playerCharacter.y + 1);
+		} else if (lightCheck) {
+			dealDamageToPlayer (lightning.damage);
+			//get rid of the lightning
+			erase_Bead (playerCharacter.x, playerCharacter.y + 1);
+		}
+
+		//move the player character
 		erase_Bead(playerCharacter.x, playerCharacter.y);
 		playerCharacter.y++;
 		draw_Player();
@@ -130,13 +193,19 @@ function update_Jump(){
 //function for the player projectile movement
 function update_Projectile(){
 
+	//remove the bead
 	erase_Bead(projectile.x, projectile.y);
 
+	//TODO: we need to check if we're about to hit a raindrop or thunder cloud
+
+	//if we are not at the top, move up
 	if (projectile.y != 0){
 
 		projectile.y--;
 		draw_Projectile(projectile.x, projectile.y);
-	} else {
+	}
+	//if the projectile IS at the top, deactivate it so we can fire again
+	else {
 
 		projectile.isActive = false;
 	}
@@ -145,8 +214,10 @@ function update_Projectile(){
 //function for the raindrop spawner
 function update_Raindropper (){
 
+	//run our countdown
 	rainSpawner.countDown_Current--;
 
+	//if our timer hits 0, spawn a raindrop
 	if (rainSpawner.countDown_Current <= 0){
 
 		//spawn a raindrop at this location and then choose a new location
@@ -155,6 +226,7 @@ function update_Raindropper (){
 
 		draw_Raindrop(rainSpawner.x, rainSpawner.y);
 
+		//reset our timer and move to a new location
 		rainSpawner.countDown_Current = rainSpawner.countDown_Max;
 		rainSpawner.x = PS.random(12);
 	}
@@ -162,23 +234,97 @@ function update_Raindropper (){
 
 function update_Raindrops(){
 
-	for (var i = 0; i < raindropY.Length; i++){
+	for (var i = 0; i < raindropY.length; i++){
 
-		erase_Bead(raindropX[i], raindropY[i]);
-		raindropY[i]++;
-		draw_Raindrop(raindropX[i], raindropY[i]);
+		//we will need to remove the bead first to get rid of all data at that point
+		erase_Bead(raindropX[i], raindropY[i]);	
+		
+		//if the bead is not at the bottom, move it down one space
+		if (raindropY[i] < 12){
 
-		//TODO: check if it is colliding with the player character
+			//variable for checking if the player is in the way
+			var playerCheck = false;
 
-		//if it hits the player, deal one damage
+			//if we are about to move to the bottom, make a player check
+			if (raindropY[i] == 11){
 
-		//if it hits the ground, add one point
-		if (raindropY(i) == 12){
+				playerCheck = PS.data(raindropX[i], raindropY[i] + 1) == "playerCharacter" ? true : false;
+			}
 
-			erase_Bead(raindropX(i), raindropY(i));
-			raindropX.splice(i, 1;
-			raindropY.splice(i, 1);
+			//move down one space
+			raindropY[i]++;
+
+			//if we do not hit the player, draw the bead properly
+			if (!playerCheck){
+
+				draw_Raindrop(raindropX[i], raindropY[i]);
+			}
+			//if we do hit the player, remove the bead from the game and deal damage to the player
+			else {
+
+				//remove the raindrop from the game
+				erase_Bead(raindropX[i], raindropY[i]);
+				raindropX.splice(i, 1);
+				raindropY.splice(i, 1);
+
+				//we will need to redraw the player after deleting the raindrop data
+				draw_Player();
+				//deal one damage
+				dealDamageToPlayer(raindrop.damage);
+			}
 		}
+		//if we are at the bottom, check to see if the player moved into us. If they have, deal one damage. If they have not, grant 1 point
+		else {
+
+			var playerCheck = PS.data(raindropX[i], raindropY[i]) == "playerCharacter" ? true : false;
+
+			if (playerCheck){
+
+				//remove the raindrop from the game
+				erase_Bead(raindropX[i], raindropY[i]);
+				raindropX.splice(i, 1);
+				raindropY.splice(i, 1);
+
+				//we will need to redraw the player after deleting the raindrop data
+				draw_Player();
+				//deal one damage
+				dealDamageToPlayer(raindrop.damage);
+			} else {
+
+				//remove the raindrop from the game
+				erase_Bead(raindropX[i], raindropY[i]);
+				raindropX.splice(i, 1);
+				raindropY.splice(i, 1);
+
+				//redraw the player just in case
+				draw_Player();
+
+				//add one to the raindropCounter
+				raindropCounter++;
+
+				//if we have enough raindrops hitting the ground, grant a point and reset the counter
+				if (raindropCounter > raindropsForPoint){
+
+					points_Current++;
+					raindropCounter = 0;
+				}
+			}
+		}
+	}
+}
+
+//take an integer and subtract it from the player's health
+function dealDamageToPlayer(damage){
+
+	PS.debug("hit");
+	playerCharacter.health -= damage;
+
+	//redraw the player for edge cases of it being erased
+	draw_Player();
+
+	//if we have 0 or less health, game over
+	if (playerCharacter.health <= 0){
+		//TODO: end the game
 	}
 }
 
@@ -388,9 +534,20 @@ PS.keyDown = function( key, shift, ctrl, options ) {
 			if (playerCharacter.x > 0){
 
 				//TODO: check to see if there's a raindrop or lightning bolt there
+				var rainCheck = PS.data(playerCharacter.x - 1, playerCharacter.y) == "raindrop" ? true : false;
+				var lightCheck = PS.data(playerCharacter.x - 1, playerCharacter.y) == "lightning" ? true : false;
 
 				erase_Bead(playerCharacter.x, playerCharacter.y);
 				playerCharacter.x--;
+
+				if (rainCheck){
+
+					dealDamageToPlayer (raindrop.damage); 
+				} else if (lightCheck) {
+
+					dealDamageToPlayer (lightning.damage);
+				}
+
 				draw_Player();
 			}
 			break;
@@ -400,9 +557,20 @@ PS.keyDown = function( key, shift, ctrl, options ) {
 			if (playerCharacter.x < gameBoard.Width - 1){
 
 				//TODO: check to see if there's a raindrop or lightning bolt there
+				var rainCheck = PS.data(playerCharacter.x + 1, playerCharacter.y) == "raindrop" ? true : false;
+				var lightCheck = PS.data(playerCharacter.x + 1, playerCharacter.y) == "lightning" ? true : false;
 
 				erase_Bead (playerCharacter.x, playerCharacter.y);
 				playerCharacter.x++;
+
+				if (rainCheck){
+
+					dealDamageToPlayer (raindrop.damage); 
+				} else if (lightCheck) {
+
+					dealDamageToPlayer (lightning.damage);
+				}
+
 				draw_Player();
 			}
 			break;
