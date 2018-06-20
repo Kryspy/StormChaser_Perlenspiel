@@ -26,7 +26,10 @@ var gameBoard = {
 
 	// colors for the game screen
 	color_BG : 0x2C2E30,
-	color_Screen: 0x07638F
+	color_Screen: 0x07638F,
+
+	// game over boolean
+	gameOver : false
 };
 
 // points counters
@@ -39,7 +42,7 @@ var raindropsForPoint = 5;
 
 //current difficulty leve
 var difficulty_Cur = 1;
-var difficulty_Next = 10;
+var difficulty_Next = 1;
 
 // Player Character object
 var playerCharacter = {
@@ -52,7 +55,7 @@ var playerCharacter = {
 	isJumping : false,
 
 	// Health point variable
-	health : 5,
+	health : 10,
 
 	// Player color
 	beadColor : 0xDE0F00,
@@ -100,6 +103,7 @@ var rainSpawner = {
 
 	// Countdown to next raindrop
 	countDown_Current : 5,
+	countDown_Min : 2,
 	countDown_Max : 10
 }
 
@@ -107,11 +111,11 @@ var rainSpawner = {
 var thunderCloud1 = {
 
 	// Location variables
-	x : 0,
+	x : 1,
 	y : 1,
 
 	// Current X move direction (positive 1 or negative 1)
-	moveXDir = 1,
+	moveXDir : 1,
 
 	// Countdown to next lightning strike
 	countDown_Current : 5,
@@ -119,7 +123,7 @@ var thunderCloud1 = {
 	countDown_Max : 20,
 
 	// Boolean to determine whether it is active or not
-	isActive = false;
+	isActive : false,
 
 	// Cloud color
 	beadColor : 0xFFFFFF,
@@ -131,11 +135,11 @@ var thunderCloud1 = {
 var thunderCloud2 = {
 
 	// Location variables
-	x : 0,
+	x : 1,
 	y : 3,
 
 	// Current X move direction (positive 1 or negative 1)
-	moveXDir = 1,
+	moveXDir : 1,
 
 	// Countdown to next lightning strike
 	countDown_Current : 5,
@@ -143,7 +147,7 @@ var thunderCloud2 = {
 	countDown_Max : 20,
 
 	// Boolean to determine whether it is active or not
-	isActive = false;
+	isActive : false,
 
 	// Cloud color
 	beadColor : 0xFFFFFF,
@@ -155,11 +159,11 @@ var thunderCloud2 = {
 var thunderCloud3 = {
 
 	// Location variables
-	x : 0,
+	x : 1,
 	y : 5,
 
 	// Current X move direction (positive 1 or negative 1)
-	moveXDir = 1,
+	moveXDir : 1,
 
 	// Countdown to next lightning strike
 	countDown_Current : 5,
@@ -167,7 +171,7 @@ var thunderCloud3 = {
 	countDown_Max : 20,
 
 	// Boolean to determine whether it is active or not
-	isActive = false;
+	isActive : false,
 
 	// Cloud color
 	beadColor : 0xFFFFFF,
@@ -183,7 +187,7 @@ var lightning = {
 	damage : 2,
 
 	// Lightning color
-	beadColor : 0x0086F7,
+	beadColor : 0xFFEC44,
 	// Flashing color
 	flashColor : 0x000000,
 
@@ -196,30 +200,38 @@ var raindropY = [];
 
 var lightX = [];
 var lightY = [];
-var flashX = [];
-var flashY = [];
+var lightFlash = [];
+
+var flashingColor = true;
 
 //** Game Functions **//
 
 //everything in this function occurs once every frame
 function update_Global(){
 
-	//first, let's handle jumps
-	update_Jump();
+	if (!gameBoard.gameOver){
 
-	//then we handle projectiles (if we shot a projectile)
-	if (projectile.isActive)
-		update_Projectile();
-
-	//update the rain next
-	update_Raindropper();
-
-	if (raindropY.length > 0){
-
-		update_Raindrops();
+		//first, let's handle jumps
+		update_Jump();
+	
+		//then we handle projectiles (if we shot a projectile)
+		if (projectile.isActive)
+			update_Projectile();
+	
+		//update the rain next
+		update_Raindropper();
+	
+		if (raindropY.length > 0){
+	
+			update_Raindrops();
+		}
+	
+		//then update thunderclouds
+		update_ThunderCloud();
+	
+		//then update lightning
+		update_Lightning();
 	}
-
-	//then update lightning
 }
 
 //jumping function for the player
@@ -312,7 +324,7 @@ function update_Raindropper (){
 		draw_Raindrop(rainSpawner.x, rainSpawner.y);
 
 		//reset our timer and move to a new location
-		rainSpawner.countDown_Current = rainSpawner.countDown_Max;
+		rainSpawner.countDown_Current = Math.floor(Math.random() * rainSpawner.countDown_Max) + rainSpawner.countDown_Min;
 		rainSpawner.x = PS.random(12);
 	}
 }
@@ -390,7 +402,8 @@ function update_Raindrops(){
 				//if we have enough raindrops hitting the ground, grant a point and reset the counter
 				if (raindropCounter > raindropsForPoint){
 
-					points_Current++;
+					gainPoints(1);
+
 					raindropCounter = 0;
 				}
 			}
@@ -405,7 +418,7 @@ function update_ThunderCloud (){
 	if (thunderCloud1.isActive){
 
 		//erase all six beads of the cloud
-		erase_Cloud(1);
+		erase_Cloud(thunderCloud1.x, thunderCloud1.y);
 		//move the cloud one space in its current movement direction
 		thunderCloud1.x += (1 * thunderCloud1.moveXDir);
 		//draw the cloud at the new position
@@ -416,83 +429,346 @@ function update_ThunderCloud (){
 			thunderCloud1.moveXDir *= -1;
 
 		//check its current timer to see when it should drop a lightning bolt
+		thunderCloud1.countDown_Current--;
 
-		//after dropping a lightning bolt, randomize the timer.
+		if (thunderCloud1.countDown_Current <= 0){
+
+			//choose a random number between 1 and 10. On a 1, spawn a flashing bolt. Anything else has a normal lightning bolt
+			var boltChoice = PS.random(10);
+
+			//spawn a flashing bolt
+			if (boltChoice == 1){
+
+				lightX.push(thunderCloud1.x);
+				lightY.push(thunderCloud1.y);
+				lightFlash.push(true);
+
+				draw_Lightning(thunderCloud1.x, thunderCloud1.y + 1, lightning.beadColor);
+			}
+			//spawn a normal bolt of lightning
+			else {
+
+				lightX.push(thunderCloud1.x);
+				lightY.push(thunderCloud1.y);
+				lightFlash.push(false);
+
+				draw_Lightning(thunderCloud1.x, thunderCloud1.y + 1, lightning.beadColor);
+			}
+
+
+			//after dropping a lightning bolt, randomize the timer.
+			thunderCloud1.countDown_Current = Math.floor(Math.random() * thunderCloud1.countDown_Max) + thunderCloud1.countDown_Min;
+		}
+	}
+
+	// thunderCloud2 activity
+	if (thunderCloud2.isActive){
+
+		//erase all six beads of the cloud
+		erase_Cloud(thunderCloud2.x, thunderCloud2.y);
+		//move the cloud one space in its current movement direction
+		thunderCloud2.x += (1 * thunderCloud2.moveXDir);
+		//draw the cloud at the new position
+		draw_ThunderCloud(2);
+
+		//if the cloud is at the edge of a screen, reverse its movement direction
+		if (thunderCloud2.x == 11 && thunderCloud2.moveXDir == 1 || thunderCloud2.x == 1 && thunderCloud2.moveXDir == -1)
+			thunderCloud2.moveXDir *= -1;
+
+		//check its current timer to see when it should drop a lightning bolt
+		thunderCloud2.countDown_Current--;
+
+		if (thunderCloud2.countDown_Current <= 0){
+
+			//choose a random number between 1 and 10. On a 1, spawn a flashing bolt. Anything else has a normal lightning bolt
+			var boltChoice = PS.random(10);
+
+			//spawn a flashing bolt
+			if (boltChoice == 1){
+
+				lightX.push(thunderCloud2.x);
+				lightY.push(thunderCloud2.y);
+				lightFlash.push(true);
+
+				draw_Lightning(thunderCloud2.x, thunderCloud2.y + 1, lightning.beadColor);
+			}
+			//spawn a normal bolt of lightning
+			else {
+
+				lightX.push(thunderCloud2.x);
+				lightY.push(thunderCloud2.y);
+				lightFlash.push(false);
+
+				draw_Lightning(thunderCloud2.x, thunderCloud2.y + 1, lightning.beadColor);
+			}
+
+
+			//after dropping a lightning bolt, randomize the timer.
+			thunderCloud2.countDown_Current = Math.floor(Math.random() * thunderCloud2.countDown_Max) + thunderCloud2.countDown_Min;
+		}
+	}
+
+	// thunderCloud3 activity
+	if (thunderCloud3.isActive){
+
+		//erase all six beads of the cloud
+		erase_Cloud(thunderCloud3.x, thunderCloud3.y);
+		//move the cloud one space in its current movement direction
+		thunderCloud3.x += (1 * thunderCloud3.moveXDir);
+		//draw the cloud at the new position
+		draw_ThunderCloud(3);
+
+		//if the cloud is at the edge of a screen, reverse its movement direction
+		if (thunderCloud3.x == 11 && thunderCloud3.moveXDir == 1 || thunderCloud3.x == 1 && thunderCloud3.moveXDir == -1)
+			thunderCloud3.moveXDir *= -1;
+
+		//check its current timer to see when it should drop a lightning bolt
+		thunderCloud3.countDown_Current--;
+
+		if (thunderCloud3.countDown_Current <= 0){
+
+			//choose a random number between 1 and 10. On a 1, spawn a flashing bolt. Anything else has a normal lightning bolt
+			var boltChoice = PS.random(10);
+
+			//spawn a flashing bolt
+			if (boltChoice == 1){
+
+				lightX.push(thunderCloud3.x);
+				lightY.push(thunderCloud3.y);
+				lightFlash.push(true);
+
+				draw_Lightning(thunderCloud3.x, thunderCloud3.y + 1, lightning.beadColor);
+			}
+			//spawn a normal bolt of lightning
+			else {
+
+				lightX.push(thunderCloud3.x);
+				lightY.push(thunderCloud3.y);
+				lightFlash.push(false);
+
+				draw_Lightning(thunderCloud3.x, thunderCloud3.y + 1, lightning.beadColor);
+			}
+
+
+			//after dropping a lightning bolt, randomize the timer.
+			thunderCloud3.countDown_Current = Math.floor(Math.random() * thunderCloud3.countDown_Max) + thunderCloud3.countDown_Min;
+		}
 	}
 }
 
 function update_Lightning(){
 
+	//only toggle flashingColor once per frame!
+	flashingColor = !flashingColor;
 
+	for (var i = 0; i < lightY.length; i++){
 
-	//draw_Lightning(lightX[i], lightY[i], lightning.beadColor);
-	//draw_Lightning(flashX[i], flashY[i], lightning.beadcolor);
-	//draw_Lightning(flashX[i], flashY[i], lightning.flashColor);
+		//we will need to remove the beads first to get rid of all data at that point
+		erase_Bead(lightX[i], lightY[i]);
+		erase_Bead(lightX[i], lightY[i] - 1);
+		
+		//if the bead is not at the bottom, move it down two spaces
+		if (lightY[i] < 12){
+
+			//variable for checking if the player is in the way
+			var playerCheck = false;
+
+			//if we are about to move to the bottom, make a player check
+			if (lightY[i] == 11){
+
+				playerCheck = PS.data(lightX[i], lightY[i] + 1) == "playerCharacter" ? true : false;
+
+				//if we did not hit at the main point for the bolt, check the other half of the bolt
+				if (!playerCheck){
+
+					var playerCheck = PS.data(lightX[i], lightY[i]) == "playerCharacter" ? true : false;
+				}
+
+				//only move down one space to avoid going out of bounds
+				lightY[i]++;
+			} else {
+
+				//move down two spaces
+				lightY[i] += 2;
+			}
+
+			//if we do not hit the player, draw the beads properly
+			if (!playerCheck){
+
+				//if we're supposed to show a flashing bolt this frame
+				if (lightFlash[i] && flashingColor){
+
+					draw_Lightning(lightX[i], lightY[i], lightning.flashColor);
+				}
+				//otherwise show it normally
+				else {
+					draw_Lightning(lightX[i], lightY[i], lightning.beadColor);
+				}
+			}
+			//if we do hit the player, remove the beads from the game and deal damage to the player
+			else {
+
+				//if this was a flashing bolt, add a damage multiplier
+				var boltDamage = lightFlash[i] ? 1 : 1.5;
+
+				//deal damage
+				dealDamageToPlayer(lightning.damage * boltDamage);
+
+				//remove the lightning bolt from the game
+				erase_Bead(lightX[i], lightY[i]);
+				erase_Bead(lightX[i], lightY[i] - 1);
+				lightX.splice(i, 1);
+				lightY.splice(i, 1);
+				lightFlash.splice(i, 1);
+
+				//we will need to redraw the player after deleting the raindrop data
+				draw_Player();
+			}
+		}
+		//if we are at the bottom, check to see if the player moved into us. If they have, deal one damage. If they have not, grant 1 point
+		else {
+
+			var playerCheck = PS.data(lightX[i], lightY[i]) == "playerCharacter" ? true : false;
+
+			//if we did not hit at the main point for the bolt, check the other half of the bolt
+			if (!playerCheck){
+
+				var playerCheck = PS.data(lightX[i], lightY[i] - 1) == "playerCharacter" ? true : false;
+			}
+
+			if (playerCheck){
+
+				//if this was a flashing bolt, add a damage multiplier
+				var boltDamage = lightFlash[i] ? 1 : 1.5;
+
+				//deal damage
+				dealDamageToPlayer(lightning.damage * boltDamage);
+
+				//remove the lightning bolt from the game
+				erase_Bead(lightX[i], lightY[i]);
+				erase_Bead(lightX[i], lightY[i] - 1);
+				lightX.splice(i, 1);
+				lightY.splice(i, 1);
+				lightFlash.splice(i, 1);
+
+				//we will need to redraw the player after deleting the lightning data
+				draw_Player();
+			} else {
+
+				//if this was a flashing bolt, give three points
+				var boltBonus = lightFlash[i] ? 1 : 3;
+				//gain 1 point
+				gainPoints(boltBonus);
+
+				//remove the lightning bolt from the game
+				erase_Bead(lightX[i], lightY[i]);
+				erase_Bead(lightX[i], lightY[i] - 1);
+				lightX.splice(i, 1);
+				lightY.splice(i, 1);
+				lightFlash.splice(i, 1);
+
+				//redraw the player just in case
+				draw_Player();
+			}
+		}
+	}
 }
 
 //take an integer and subtract it from the player's health
 function dealDamageToPlayer(damage){
 
-	PS.debug("hit");
 	playerCharacter.health -= damage;
+
+	PS.statusText( "Points: " + points_Current + "\n" + "Health: " + playerCharacter.health);
+	PS.statusColor(PS.COLOR_WHITE);
 
 	//redraw the player for edge cases of it being erased
 	draw_Player();
 
 	//if we have 0 or less health, game over
 	if (playerCharacter.health <= 0){
-		//TODO: end the game
+		
+		gameBoard.gameOver = true;
+
+		//give a unique message for various levels of difficulty
+		var scoreText = "";
+
+		if (difficulty_Cur < 5)
+			scoreText = "Try a bit harder next time!\n";
+		else if (difficulty_Cur < 15)
+			scoreText = "Not too bad...\n";
+		else if (difficulty_Cur < 25)
+			scoreText = "You're doing great!\n";
+		else if (difficulty_Cur < 40)
+			scoreText = "Hey, you're pretty good at this.\n";
+		else if (difficulty_Cur < 50)
+			scoreText = "Keep it up!\n";
+		else
+			scoreText = "Holy moly.\n";
+
+		PS.color (PS.ALL, PS.ALL, PS.COLOR_BLACK);
+		PS.debug ("GAME OVER\n" + scoreText + "Please refresh the page to play again!\n")
 	}
 }
 
 //take an integer in and add it to the player's total points
 function gainPoints (points){
 
+	//add our new points
 	points_Current += points;
 
+	PS.statusText( "Points: " + points_Current + "\n" + "Health: " + playerCharacter.health);
+	PS.statusColor(PS.COLOR_WHITE);
+
+	//count down to the next increase in difficulty
 	difficulty_Next -= points;
 
+	//when we reach a new level of difficulty, reset our counter and check to see if we should activate a new thundercloud or increase rainfall
 	if (difficulty_Next <= 0){
 
 		difficulty_Cur++;
 
-		difficulty_Next = 5 + (5 * difficulty_Cur);
+		difficulty_Next = 2 + (2 * difficulty_Cur);
 
 
-		if (thunderCloud1.isActive){
-
-			if (thunderCloud1.countDown_Min > 1)
-				thunderCloud1.countDown_Min--;
-			if (thunderCloud1.countDown_Max > 5)
-				thunderCloud1.countDown_Max--;
-		} else if (!thunderCloud1.isActive && difficulty_Cur == 5){
+		if (!thunderCloud1.isActive && difficulty_Cur == 2){
 
 			thunderCloud1.isActive = true;
-			rainSpawner.countDown_Max = 10;
+
+			draw_ThunderCloud(1);
 		}
 
-		if (thunderCloud2.isActive){
+		if (difficulty_Cur == 5){
 
-			if (thunderCloud2.countDown_Min > 1)
-				thunderCloud2.countDown_Min--;
-			if (thunderCloud2.countDown_Max > 5)
-				thunderCloud2.countDown_Max--;
-		} else if (!thunderCloud2.isActive && difficulty_Cur == 15){
+			rainSpawner.countDown_Max = 8;
+		}
+
+		if (!thunderCloud2.isActive && difficulty_Cur == 10){
 
 			thunderCloud2.isActive = true;
+
+			draw_ThunderCloud(2);
+
 			rainSpawner.countDown_Max = 7;
 		}
 
-		if (thunderCloud3.isActive){
+		if (difficulty_Cur == 12){
 
-			if (thunderCloud3.countDown_Min > 1)
-				thunderCloud3.countDown_Min--;
-			if (thunderCloud3.countDown_Max > 5)
-				thunderCloud3.countDown_Max--;
-		}  else if (!thunderCloud3.isActive && difficulty_Cur == 30){
+			rainSpawner.countDown_Max = 5;
+		}
+
+		if (!thunderCloud3.isActive && difficulty_Cur == 20){
 
 			thunderCloud3.isActive = true;
-			rainSpawner.coundDown_Max = 4;
+
+			draw_ThunderCloud(3);
+
+			rainSpawner.countDown_Max = 4;
+		}
+
+		if (difficulty_Cur == 25){
+
+			rainSpawner.countDown_Max = 3;
 		}
 	}
 }
@@ -610,6 +886,7 @@ function draw_Lightning (x, y, currentColor) {
 
 	PS.data (x, y, lightning.data);
 	PS.color (x, y, currentColor);
+	PS.data (x, y - 1, lightning.data);
 	PS.color (x, y - 1, currentColor);
 }
 
@@ -617,6 +894,28 @@ function erase_Bead (x, y) {
 
 	PS.data (x, y, 0);
 	PS.color (x, y, gameBoard.color_Screen);	
+}
+
+//erase the six beads around the point for a cloud object
+function erase_Cloud (x, y) {
+
+	PS.data (x, y, 0);
+	PS.color (x, y, gameBoard.color_Screen);
+
+	PS.data (x - 1, y, 0);
+	PS.color (x - 1, y, gameBoard.color_Screen);
+
+	PS.data (x + 1, y, 0);
+	PS.color (x + 1, y, gameBoard.color_Screen);
+
+	PS.data (x - 1, y - 1, 0);
+	PS.color (x - 1, y - 1, gameBoard.color_Screen);
+
+	PS.data (x, y - 1, 0);
+	PS.color (x, y - 1, gameBoard.color_Screen);
+
+	PS.data (x + 1, y - 1, 0);
+	PS.color (x + 1, y - 1, gameBoard.color_Screen);
 }
 
 //** Perlenspiel Functions **//
@@ -648,7 +947,8 @@ PS.init = function( system, options ) {
 	// in the status line above the grid.
 	// Uncomment the following code line and change the string parameter as needed.
 
-	//PS.statusText( "Points: " + points_Current);
+	PS.statusText( "Points: " + points_Current + "\n" + "Health: " + playerCharacter.health);
+	PS.statusColor(PS.COLOR_WHITE);
 
 	// Add any other initialization code you need here.
 	PS.gridColor (gameBoard.color_BG);
@@ -792,73 +1092,78 @@ PS.keyDown = function( key, shift, ctrl, options ) {
 
 	// PS.debug( "PS.keyDown(): key=" + key + ", shift=" + shift + ", ctrl=" + ctrl + "\n" );
 
-	// Add code here for when a key is pressed.
-	switch (key) {
+	//only check this if we do not have a game over
 
-		//move the player left if they are not at the left edge of the screen
-		case PS.KEY_ARROW_LEFT:
-			if (playerCharacter.x > 0){
+	if (!gameBoard.gameOver){
 
-				//TODO: check to see if there's a raindrop or lightning bolt there
-				var rainCheck = PS.data(playerCharacter.x - 1, playerCharacter.y) == "raindrop" ? true : false;
-				var lightCheck = PS.data(playerCharacter.x - 1, playerCharacter.y) == "lightning" ? true : false;
-
-				erase_Bead(playerCharacter.x, playerCharacter.y);
-				playerCharacter.x--;
-
-				if (rainCheck){
-
-					dealDamageToPlayer (raindrop.damage); 
-				} else if (lightCheck) {
-
-					dealDamageToPlayer (lightning.damage);
+		// Add code here for when a key is pressed.
+		switch (key) {
+	
+			//move the player left if they are not at the left edge of the screen
+			case PS.KEY_ARROW_LEFT:
+				if (playerCharacter.x > 0){
+	
+					//TODO: check to see if there's a raindrop or lightning bolt there
+					var rainCheck = PS.data(playerCharacter.x - 1, playerCharacter.y) == "raindrop" ? true : false;
+					var lightCheck = PS.data(playerCharacter.x - 1, playerCharacter.y) == "lightning" ? true : false;
+	
+					erase_Bead(playerCharacter.x, playerCharacter.y);
+					playerCharacter.x--;
+	
+					if (rainCheck){
+	
+						dealDamageToPlayer (raindrop.damage); 
+					} else if (lightCheck) {
+	
+						dealDamageToPlayer (lightning.damage);
+					}
+	
+					draw_Player();
 				}
-
-				draw_Player();
-			}
-			break;
-
-		//move the player right if they are not at the right edge of the screen
-		case PS.KEY_ARROW_RIGHT:
-			if (playerCharacter.x < gameBoard.Width - 1){
-
-				//TODO: check to see if there's a raindrop or lightning bolt there
-				var rainCheck = PS.data(playerCharacter.x + 1, playerCharacter.y) == "raindrop" ? true : false;
-				var lightCheck = PS.data(playerCharacter.x + 1, playerCharacter.y) == "lightning" ? true : false;
-
-				erase_Bead (playerCharacter.x, playerCharacter.y);
-				playerCharacter.x++;
-
-				if (rainCheck){
-
-					dealDamageToPlayer (raindrop.damage); 
-				} else if (lightCheck) {
-
-					dealDamageToPlayer (lightning.damage);
+				break;
+	
+			//move the player right if they are not at the right edge of the screen
+			case PS.KEY_ARROW_RIGHT:
+				if (playerCharacter.x < gameBoard.Width - 1){
+	
+					//TODO: check to see if there's a raindrop or lightning bolt there
+					var rainCheck = PS.data(playerCharacter.x + 1, playerCharacter.y) == "raindrop" ? true : false;
+					var lightCheck = PS.data(playerCharacter.x + 1, playerCharacter.y) == "lightning" ? true : false;
+	
+					erase_Bead (playerCharacter.x, playerCharacter.y);
+					playerCharacter.x++;
+	
+					if (rainCheck){
+	
+						dealDamageToPlayer (raindrop.damage); 
+					} else if (lightCheck) {
+	
+						dealDamageToPlayer (lightning.damage);
+					}
+	
+					draw_Player();
 				}
-
-				draw_Player();
-			}
-			break;
-
-		//jump when the player hits the up arrow
-		case PS.KEY_ARROW_UP:
-			if (!playerCharacter.isJumping && playerCharacter.y == 12){
-
-				playerCharacter.isJumping = true;
-			}
-			break;
-
-		//shoot a projectile when the player hits tab
-		case PS.KEY_TAB:
-			if (!projectile.isActive){
-
-				projectile.x = playerCharacter.x;
-				projectile.y = playerCharacter.y - 1;
-				projectile.isActive = true;
-				draw_Projectile();
-			}
-			break;
+				break;
+	
+			//jump when the player hits the up arrow
+			case PS.KEY_ARROW_UP:
+				if (!playerCharacter.isJumping && playerCharacter.y == 12){
+	
+					playerCharacter.isJumping = true;
+				}
+				break;
+	
+			//shoot a projectile when the player hits tab
+			case PS.KEY_TAB:
+				if (!projectile.isActive){
+	
+					projectile.x = playerCharacter.x;
+					projectile.y = playerCharacter.y - 1;
+					projectile.isActive = true;
+					draw_Projectile();
+				}
+				break;
+		}
 	}
 };
 
