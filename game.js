@@ -37,6 +37,10 @@ var raindropCounter = 0;
 //number of raindrops required to hit the ground to earn one point
 var raindropsForPoint = 5;
 
+//current difficulty leve
+var difficulty_Cur = 1;
+var difficulty_Next = 10;
+
 // Player Character object
 var playerCharacter = {
 
@@ -87,6 +91,7 @@ var raindrop = {
 	data : "raindrop"
 };
 
+// raindrop spawner object variable
 var rainSpawner = {
 
 	// Location variables
@@ -98,6 +103,79 @@ var rainSpawner = {
 	countDown_Max : 10
 }
 
+// Lightning object variable
+var thunderCloud1 = {
+
+	// Location variables
+	x : 0,
+	y : 1,
+
+	// Current X move direction (positive 1 or negative 1)
+	moveXDir = 1,
+
+	// Countdown to next lightning strike
+	countDown_Current : 5,
+	countDown_Min : 10,
+	countDown_Max : 20,
+
+	// Boolean to determine whether it is active or not
+	isActive = false;
+
+	// Cloud color
+	beadColor : 0xFFFFFF,
+
+	// Cloud data
+	data : "cloud"
+}
+
+var thunderCloud2 = {
+
+	// Location variables
+	x : 0,
+	y : 3,
+
+	// Current X move direction (positive 1 or negative 1)
+	moveXDir = 1,
+
+	// Countdown to next lightning strike
+	countDown_Current : 5,
+	countDown_Min : 10,
+	countDown_Max : 20,
+
+	// Boolean to determine whether it is active or not
+	isActive = false;
+
+	// Cloud color
+	beadColor : 0xFFFFFF,
+
+	// Cloud data
+	data : "cloud"
+}
+
+var thunderCloud3 = {
+
+	// Location variables
+	x : 0,
+	y : 5,
+
+	// Current X move direction (positive 1 or negative 1)
+	moveXDir = 1,
+
+	// Countdown to next lightning strike
+	countDown_Current : 5,
+	countDown_Min : 10,
+	countDown_Max : 20,
+
+	// Boolean to determine whether it is active or not
+	isActive = false;
+
+	// Cloud color
+	beadColor : 0xFFFFFF,
+
+	// Cloud data
+	data : "cloud"
+}
+
 // Lightning object data
 var lightning = {
 
@@ -106,13 +184,20 @@ var lightning = {
 
 	// Lightning color
 	beadColor : 0x0086F7,
+	// Flashing color
+	flashColor : 0x000000,
 
 	// Lightning data
 	data : "lightning"
-};
+}
 
 var raindropX = [];
 var raindropY = [];
+
+var lightX = [];
+var lightY = [];
+var flashX = [];
+var flashY = [];
 
 //** Game Functions **//
 
@@ -313,6 +398,38 @@ function update_Raindrops(){
 	}
 }
 
+//handles the live update of the thunder clouds
+function update_ThunderCloud (){
+
+	//only operate if it is active
+	if (thunderCloud1.isActive){
+
+		//erase all six beads of the cloud
+		erase_Cloud(1);
+		//move the cloud one space in its current movement direction
+		thunderCloud1.x += (1 * thunderCloud1.moveXDir);
+		//draw the cloud at the new position
+		draw_ThunderCloud(1);
+
+		//if the cloud is at the edge of a screen, reverse its movement direction
+		if (thunderCloud1.x == 11 && thunderCloud1.moveXDir == 1 || thunderCloud1.x == 1 && thunderCloud1.moveXDir == -1)
+			thunderCloud1.moveXDir *= -1;
+
+		//check its current timer to see when it should drop a lightning bolt
+
+		//after dropping a lightning bolt, randomize the timer.
+	}
+}
+
+function update_Lightning(){
+
+
+
+	//draw_Lightning(lightX[i], lightY[i], lightning.beadColor);
+	//draw_Lightning(flashX[i], flashY[i], lightning.beadcolor);
+	//draw_Lightning(flashX[i], flashY[i], lightning.flashColor);
+}
+
 //take an integer and subtract it from the player's health
 function dealDamageToPlayer(damage){
 
@@ -325,6 +442,58 @@ function dealDamageToPlayer(damage){
 	//if we have 0 or less health, game over
 	if (playerCharacter.health <= 0){
 		//TODO: end the game
+	}
+}
+
+//take an integer in and add it to the player's total points
+function gainPoints (points){
+
+	points_Current += points;
+
+	difficulty_Next -= points;
+
+	if (difficulty_Next <= 0){
+
+		difficulty_Cur++;
+
+		difficulty_Next = 5 + (5 * difficulty_Cur);
+
+
+		if (thunderCloud1.isActive){
+
+			if (thunderCloud1.countDown_Min > 1)
+				thunderCloud1.countDown_Min--;
+			if (thunderCloud1.countDown_Max > 5)
+				thunderCloud1.countDown_Max--;
+		} else if (!thunderCloud1.isActive && difficulty_Cur == 5){
+
+			thunderCloud1.isActive = true;
+			rainSpawner.countDown_Max = 10;
+		}
+
+		if (thunderCloud2.isActive){
+
+			if (thunderCloud2.countDown_Min > 1)
+				thunderCloud2.countDown_Min--;
+			if (thunderCloud2.countDown_Max > 5)
+				thunderCloud2.countDown_Max--;
+		} else if (!thunderCloud2.isActive && difficulty_Cur == 15){
+
+			thunderCloud2.isActive = true;
+			rainSpawner.countDown_Max = 7;
+		}
+
+		if (thunderCloud3.isActive){
+
+			if (thunderCloud3.countDown_Min > 1)
+				thunderCloud3.countDown_Min--;
+			if (thunderCloud3.countDown_Max > 5)
+				thunderCloud3.countDown_Max--;
+		}  else if (!thunderCloud3.isActive && difficulty_Cur == 30){
+
+			thunderCloud3.isActive = true;
+			rainSpawner.coundDown_Max = 4;
+		}
 	}
 }
 
@@ -345,6 +514,103 @@ function draw_Raindrop(x, y){
 
 	PS.data (x, y, raindrop.data);
 	PS.color (x, y, raindrop.beadColor);
+}
+
+function draw_ThunderCloud (cloudNum) {
+
+	switch (cloudNum){
+
+		case 1:
+
+			//the "main" square
+			PS.data(thunderCloud1.x, thunderCloud1.y, thunderCloud1.data);
+			PS.color(thunderCloud1.x, thunderCloud1.y, thunderCloud1.beadColor);
+
+			//left y = 0
+			PS.data(thunderCloud1.x - 1, thunderCloud1.y, thunderCloud1.data);
+			PS.color(thunderCloud1.x - 1, thunderCloud1.y, thunderCloud1.beadColor);
+
+			//right y = 0
+			PS.data(thunderCloud1.x + 1, thunderCloud1.y, thunderCloud1.data);
+			PS.color(thunderCloud1.x + 1, thunderCloud1.y, thunderCloud1.beadColor);
+
+			//top left
+			PS.data(thunderCloud1.x - 1, thunderCloud1.y - 1, thunderCloud1.data);
+			PS.color(thunderCloud1.x - 1, thunderCloud1.y - 1, thunderCloud1.beadColor);
+
+			//top center
+			PS.data(thunderCloud1.x, thunderCloud1.y - 1, thunderCloud1.data);
+			PS.color(thunderCloud1.x, thunderCloud1.y - 1, thunderCloud1.beadColor);
+
+			//top right
+			PS.data(thunderCloud1.x + 1, thunderCloud1.y - 1, thunderCloud1.data);
+			PS.color(thunderCloud1.x + 1, thunderCloud1.y - 1, thunderCloud1.beadColor);
+
+			break;
+
+		case 2:
+
+			//the "main" square
+			PS.data(thunderCloud2.x, thunderCloud2.y, thunderCloud2.data);
+			PS.color(thunderCloud2.x, thunderCloud2.y, thunderCloud2.beadColor);
+
+			//left y = 0
+			PS.data(thunderCloud2.x - 1, thunderCloud2.y, thunderCloud2.data);
+			PS.color(thunderCloud2.x - 1, thunderCloud2.y, thunderCloud2.beadColor);
+
+			//right y = 0
+			PS.data(thunderCloud2.x + 1, thunderCloud2.y, thunderCloud2.data);
+			PS.color(thunderCloud2.x + 1, thunderCloud2.y, thunderCloud2.beadColor);
+
+			//top left
+			PS.data(thunderCloud2.x - 1, thunderCloud2.y - 1, thunderCloud2.data);
+			PS.color(thunderCloud2.x - 1, thunderCloud2.y - 1, thunderCloud2.beadColor);
+
+			//top center
+			PS.data(thunderCloud2.x, thunderCloud2.y - 1, thunderCloud2.data);
+			PS.color(thunderCloud2.x, thunderCloud2.y - 1, thunderCloud2.beadColor);
+
+			//top right
+			PS.data(thunderCloud2.x + 1, thunderCloud2.y - 1, thunderCloud2.data);
+			PS.color(thunderCloud2.x + 1, thunderCloud2.y - 1, thunderCloud2.beadColor);
+
+			break;
+
+		case 3:
+
+			//the "main" square
+			PS.data(thunderCloud3.x, thunderCloud3.y, thunderCloud3.data);
+			PS.color(thunderCloud3.x, thunderCloud3.y, thunderCloud3.beadColor);
+
+			//left y = 0
+			PS.data(thunderCloud3.x - 1, thunderCloud3.y, thunderCloud3.data);
+			PS.color(thunderCloud3.x - 1, thunderCloud3.y, thunderCloud3.beadColor);
+
+			//right y = 0
+			PS.data(thunderCloud3.x + 1, thunderCloud3.y, thunderCloud3.data);
+			PS.color(thunderCloud3.x + 1, thunderCloud3.y, thunderCloud3.beadColor);
+
+			//top left
+			PS.data(thunderCloud3.x - 1, thunderCloud3.y - 1, thunderCloud3.data);
+			PS.color(thunderCloud3.x - 1, thunderCloud3.y - 1, thunderCloud3.beadColor);
+
+			//top center
+			PS.data(thunderCloud3.x, thunderCloud3.y - 1, thunderCloud3.data);
+			PS.color(thunderCloud3.x, thunderCloud3.y - 1, thunderCloud3.beadColor);
+
+			//top right
+			PS.data(thunderCloud3.x + 1, thunderCloud3.y - 1, thunderCloud3.data);
+			PS.color(thunderCloud3.x + 1, thunderCloud3.y - 1, thunderCloud3.beadColor);
+
+			break;
+	}
+}
+
+function draw_Lightning (x, y, currentColor) {
+
+	PS.data (x, y, lightning.data);
+	PS.color (x, y, currentColor);
+	PS.color (x, y - 1, currentColor);
 }
 
 function erase_Bead (x, y) {
