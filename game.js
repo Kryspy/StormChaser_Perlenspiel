@@ -22,7 +22,7 @@ var gameBoard = {
 	bottom : 12,
 	
 	// timer of the game, this variable divided by 60 is the framerate
-	fps : 6,
+	fps : 8,
 
 	// colors for the game screen
 	color_BG : 0x2C2E30,
@@ -202,6 +202,10 @@ var lightX = [];
 var lightY = [];
 var lightFlash = [];
 
+var shockX = [];
+var shockY = [];
+var shockDir = [];
+
 var flashingColor = true;
 
 //** Game Functions **//
@@ -227,10 +231,16 @@ function update_Global(){
 		}
 	
 		//then update thunderclouds
-		update_ThunderCloud();
+		if (thunderCloud1.isActive)
+			update_ThunderCloud();
 	
 		//then update lightning
-		update_Lightning();
+		if (lightY.length > 0)
+			update_Lightning();
+
+		//finally, update our shockwaves
+		if (shockY.length > 0)
+			update_Shockwave();
 	}
 }
 
@@ -608,11 +618,8 @@ function update_Lightning(){
 			//if we do hit the player, remove the beads from the game and deal damage to the player
 			else {
 
-				//if this was a flashing bolt, add a damage multiplier
-				var boltDamage = lightFlash[i] ? 1 : 1.5;
-
 				//deal damage
-				dealDamageToPlayer(lightning.damage * boltDamage);
+				dealDamageToPlayer(lightning.damage);
 
 				//remove the lightning bolt from the game
 				erase_Bead(lightX[i], lightY[i]);
@@ -638,11 +645,8 @@ function update_Lightning(){
 
 			if (playerCheck){
 
-				//if this was a flashing bolt, add a damage multiplier
-				var boltDamage = lightFlash[i] ? 1 : 1.5;
-
 				//deal damage
-				dealDamageToPlayer(lightning.damage * boltDamage);
+				dealDamageToPlayer(lightning.damage);
 
 				//remove the lightning bolt from the game
 				erase_Bead(lightX[i], lightY[i]);
@@ -656,9 +660,33 @@ function update_Lightning(){
 			} else {
 
 				//if this was a flashing bolt, give three points
-				var boltBonus = lightFlash[i] ? 1 : 3;
+				var boltBonus = lightFlash[i] ? 2 : 1;
 				//gain 1 point
 				gainPoints(boltBonus);
+
+				if (lightFlash[i]){
+
+					//spawn to the left and right at the same y position but only if we are not at that edge
+					if (shockX[i] != 0){
+
+						shockX.push(lightX[i] - 1);
+						shockY.push(lightY[i]);
+						//set it to move left
+						shockDir.push (-1);
+						//draw the object
+						draw_Shockwave(lightX[i] - 1, lightY[i], lightning.beadColor);
+					}
+
+					if (shockX[i] != 12){
+
+						shockX.push(lightX[i] + 1);
+						shockY.push(lightY[i]);
+						//set it to move right
+						shockDir.push(1);
+						//draw the object
+						draw_Shockwave(lightX[i] + 1, lightY[i], lightning.beadColor);
+					}
+				}
 
 				//remove the lightning bolt from the game
 				erase_Bead(lightX[i], lightY[i]);
@@ -669,6 +697,65 @@ function update_Lightning(){
 
 				//redraw the player just in case
 				draw_Player();
+			}
+		}
+	}
+}
+
+function update_Shockwave(){
+
+	var thisColor = flashingColor ? lightning.flashColor : lightning.beadColor;
+
+	for (var i = 0; i < shockX.length; i++){
+
+		//check if we're hitting a wall and destroy the object if so
+		if (shockDir[i] == -1 && shockX[i] == 0 || shockDir[i] == 1 && shockX[i] == 12){
+
+			//we should check for player collision first
+			var playerCheck = PS.data(shockX[i], shockY[i]) == "playerCharacter" ? true : false;
+
+			erase_Bead(shockX[i], shockY[i]);
+			shockX.splice(i, 1);
+			shockY.splice(i, 1);
+			shockDir.splice(i, 1);
+
+			//if we hit the player, deal damage and redraw them
+			if (playerCheck){
+
+				dealDamageToPlayer(lightning.damage);
+				draw_Player();
+			}
+			//otherwise, give the player some points
+			else {
+
+				gainPoints(3);
+			}
+		}
+		//otherwise, move normally
+		else {
+
+			//erase the bead first
+			erase_Bead(shockX[i], shockY[i]);
+
+			//check to see if we are about to collide with the player before moving
+			var playerCheck = PS.data(shockX[i] + shockDir[i], shockY[i]) == "playerCharacter" ? true : false;
+
+			//if we will collide the player, deal damage
+			if (playerCheck){
+
+				erase_Bead(shockX[i], shockY[i]);
+				shockX.splice(i, 1);
+				shockY.splice(i, 1);
+				shockDir.splice(i, 1);
+
+				dealDamageToPlayer(lightning.damage);
+				draw_Player();
+			}
+			//otherwise move one space forward and redraw the bead
+			else {
+
+				shockX[i] += shockDir[i];
+				draw_Shockwave(shockX[i], shockY[i], thisColor);
 			}
 		}
 	}
@@ -693,18 +780,18 @@ function dealDamageToPlayer(damage){
 		//give a unique message for various levels of difficulty
 		var scoreText = "";
 
-		if (difficulty_Cur < 5)
+		if (difficulty_Cur < 3)
 			scoreText = "Try a bit harder next time!\n";
-		else if (difficulty_Cur < 15)
+		else if (difficulty_Cur < 7)
 			scoreText = "Not too bad...\n";
-		else if (difficulty_Cur < 25)
+		else if (difficulty_Cur < 10)
 			scoreText = "You're doing great!\n";
-		else if (difficulty_Cur < 40)
+		else if (difficulty_Cur < 12)
 			scoreText = "Hey, you're pretty good at this.\n";
-		else if (difficulty_Cur < 50)
+		else if (difficulty_Cur < 15)
 			scoreText = "Keep it up!\n";
 		else
-			scoreText = "Holy moly.\n";
+			scoreText = "Holy moly. You are amazing!.\n";
 
 		PS.color (PS.ALL, PS.ALL, PS.COLOR_BLACK);
 		PS.debug ("GAME OVER\n" + scoreText + "Please refresh the page to play again!\n")
@@ -743,7 +830,7 @@ function gainPoints (points){
 			rainSpawner.countDown_Max = 8;
 		}
 
-		if (!thunderCloud2.isActive && difficulty_Cur == 10){
+		if (!thunderCloud2.isActive && difficulty_Cur == 7){
 
 			thunderCloud2.isActive = true;
 
@@ -752,12 +839,12 @@ function gainPoints (points){
 			rainSpawner.countDown_Max = 7;
 		}
 
-		if (difficulty_Cur == 12){
+		if (difficulty_Cur == 10){
 
 			rainSpawner.countDown_Max = 5;
 		}
 
-		if (!thunderCloud3.isActive && difficulty_Cur == 20){
+		if (!thunderCloud3.isActive && difficulty_Cur == 13){
 
 			thunderCloud3.isActive = true;
 
@@ -766,7 +853,7 @@ function gainPoints (points){
 			rainSpawner.countDown_Max = 4;
 		}
 
-		if (difficulty_Cur == 25){
+		if (difficulty_Cur == 15){
 
 			rainSpawner.countDown_Max = 3;
 		}
@@ -888,6 +975,12 @@ function draw_Lightning (x, y, currentColor) {
 	PS.color (x, y, currentColor);
 	PS.data (x, y - 1, lightning.data);
 	PS.color (x, y - 1, currentColor);
+}
+
+function draw_Shockwave (x, y, currentColor) {
+
+	PS.data (x, y, lightning.data);
+	PS.color (x, y, currentColor);
 }
 
 function erase_Bead (x, y) {
