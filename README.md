@@ -1,5 +1,7 @@
 # StormChaser_Perlenspiel
 
+My only work was on the game.js file. I do not own and did not create the Perlespiel engine!
+
 To run the game, download the entire github repository and run the game.html file!
 
 HOW TO PLAY
