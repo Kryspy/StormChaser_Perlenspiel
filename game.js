@@ -3,6 +3,8 @@
 // Storm Chaser
 // By James D'Addario
 
+// To download the game, simply download the entire github project and run the game.html file!
+
 // The "use strict" directive in the following line is important. Don't alter or remove it!
 "use strict";
 
