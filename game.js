@@ -24,7 +24,7 @@ var gameBoard = {
 	bottom : 12,
 	
 	// timer of the game, this variable divided by 60 is the framerate
-	fps : 8,
+	fps : 12,
 
 	// colors for the game screen
 	color_BG : 0x2C2E30,
@@ -105,8 +105,33 @@ var rainSpawner = {
 
 	// Countdown to next raindrop
 	countDown_Current : 5,
-	countDown_Min : 2,
+	countDown_Min : 3,
 	countDown_Max : 10
+}
+
+// edge check counter variable
+var edgeCheckLeft = {
+
+	// Location variables
+	x : 0,
+	y : 0,
+
+	// Countdown to next edge guard
+	countDown_Current : 5,
+	countDown_Min : 2,
+	countDown_Max : 8
+}
+
+var edgeCheckRight = {
+
+	// Location variables
+	x : 12,
+	y : 0,
+
+	// Countdown to next edge guard
+	countDown_Current : 5,
+	countDown_Min : 2,
+	countDown_Max : 8
 }
 
 // Lightning object variable
@@ -137,11 +162,11 @@ var thunderCloud1 = {
 var thunderCloud2 = {
 
 	// Location variables
-	x : 1,
+	x : 5,
 	y : 3,
 
 	// Current X move direction (positive 1 or negative 1)
-	moveXDir : 1,
+	moveXDir : -1,
 
 	// Countdown to next lightning strike
 	countDown_Current : 5,
@@ -161,7 +186,7 @@ var thunderCloud2 = {
 var thunderCloud3 = {
 
 	// Location variables
-	x : 1,
+	x : 5,
 	y : 5,
 
 	// Current X move direction (positive 1 or negative 1)
@@ -226,6 +251,7 @@ function update_Global(){
 	
 		//update the rain next
 		update_Raindropper();
+		update_EdgeCheck();
 	
 		if (raindropY.length > 0){
 	
@@ -337,7 +363,41 @@ function update_Raindropper (){
 
 		//reset our timer and move to a new location
 		rainSpawner.countDown_Current = Math.floor(Math.random() * rainSpawner.countDown_Max) + rainSpawner.countDown_Min;
-		rainSpawner.x = PS.random(12);
+		rainSpawner.x = PS.random(11) + 1;
+	}
+}
+
+//function for the edge checks
+function update_EdgeCheck (){
+
+	//run our countdowns
+	edgeCheckLeft.countDown_Current--;
+	edgeCheckRight.countDown_Current--;
+
+	//if either of our timers hit 0, spawn a raindrop at that point
+		//left
+	if (edgeCheckLeft.countDown_Current <= 0){
+
+		//spawn a raindrop at this location
+		raindropX.push(edgeCheckLeft.x);
+		raindropY.push(edgeCheckLeft.y);
+
+		draw_Raindrop(edgeCheckLeft.x, edgeCheckLeft.y);
+
+		//reset our countdown
+		edgeCheckLeft.countDown_Current = Math.floor(Math.random() * edgeCheckLeft.countDown_Max) + edgeCheckLeft.countDown_Min;
+	}
+		//right
+	if (edgeCheckRight.countDown_Current <= 0){
+
+		//spawn a raindrop at this location
+		raindropX.push(edgeCheckRight.x);
+		raindropY.push(edgeCheckRight.y);
+
+		draw_Raindrop(edgeCheckRight.x, edgeCheckRight.y);
+
+		//reset our countdown
+		edgeCheckRight.countDown_Current = Math.floor(Math.random() * edgeCheckRight.countDown_Max) + edgeCheckRight.countDown_Min;
 	}
 }
 
@@ -449,7 +509,7 @@ function update_ThunderCloud (){
 			var boltChoice = PS.random(10);
 
 			//spawn a flashing bolt
-			if (boltChoice == 1){
+			if (boltChoice < 3){
 
 				lightX.push(thunderCloud1.x);
 				lightY.push(thunderCloud1.y);
@@ -473,7 +533,7 @@ function update_ThunderCloud (){
 		}
 	}
 
-	// thunderCloud2 activity
+	// thunderCloud2 activity, a nicer cloud with rare shockwave bolts
 	if (thunderCloud2.isActive){
 
 		//erase all six beads of the cloud
@@ -520,7 +580,7 @@ function update_ThunderCloud (){
 		}
 	}
 
-	// thunderCloud3 activity
+	// thunderCloud3 activity, a very very aggressive cloud with frequent shockwave bolts
 	if (thunderCloud3.isActive){
 
 		//erase all six beads of the cloud
@@ -543,7 +603,7 @@ function update_ThunderCloud (){
 			var boltChoice = PS.random(10);
 
 			//spawn a flashing bolt
-			if (boltChoice == 1){
+			if (boltChoice < 5){
 
 				lightX.push(thunderCloud3.x);
 				lightY.push(thunderCloud3.y);
@@ -782,18 +842,18 @@ function dealDamageToPlayer(damage){
 		//give a unique message for various levels of difficulty
 		var scoreText = "";
 
-		if (difficulty_Cur < 3)
-			scoreText = "Try a bit harder next time!\n";
-		else if (difficulty_Cur < 7)
-			scoreText = "Not too bad...\n";
-		else if (difficulty_Cur < 10)
-			scoreText = "You're doing great!\n";
+		if (difficulty_Cur < 5)
+			scoreText = "Rank D: Keep trying!\n";
+		else if (difficulty_Cur < 9)
+			scoreText = "Rank C: Not too bad...\n";
 		else if (difficulty_Cur < 12)
-			scoreText = "Hey, you're pretty good at this.\n";
+			scoreText = "Rank B: You're doing great!\n";
 		else if (difficulty_Cur < 15)
-			scoreText = "Keep it up!\n";
+			scoreText = "Rank A: Hey, you're pretty good at this.\n";
+		else if (difficulty_Cur < 20)
+			scoreText = "Rank S: Keep it up!\n";
 		else
-			scoreText = "Holy moly. You are amazing!.\n";
+			scoreText = "Rank SSS: Holy moly. You are amazing!.\n";
 
 		PS.color (PS.ALL, PS.ALL, PS.COLOR_BLACK);
 		PS.debug ("GAME OVER\n" + scoreText + "Please refresh the page to play again!\n")
